@@ -1,127 +1,144 @@
-# 🤖 ML Notes Agent
+# Auto Notes
 
-Watches a YouTube tutorial → extracts transcript → summarizes with AI →
-researches industry usage → generates `.md` notes + `.py` code examples →
-pushes everything to your GitHub repo automatically.
+> Transform YouTube videos into clean, developer-friendly study notes and code examples.
 
-**100% free to run.** No OpenAI. No paid APIs.
+Takes any educational video → extracts insights → generates concise `.md` notes + `.py` examples → publishes to your repo.
+
+**Free to run.** Uses Groq's free tier (Llama 3.3 70B).
 
 ---
 
-## ⚡ Quick Start (5 minutes)
+## Quick Start
 
-### 1. Get a free Groq API key
-Go to [console.groq.com](https://console.groq.com) → sign up → Create API Key.
-The free tier gives you ~14,400 requests/day with llama-3.3-70b. More than enough.
+### 1. Get API keys
 
-### 2. Get a GitHub Personal Access Token
-GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-→ Generate new token → tick **repo** scope → copy the token.
+| Service | Where | What you need |
+|---------|-------|---------------|
+| **Groq** | [console.groq.com](https://console.groq.com) | API key (free tier: 14,400 req/day) |
+| **GitHub** | Settings → Developer settings → Tokens | Personal access token with `repo` scope |
 
-### 3. Create your notes repo on GitHub
-Create a new repo, e.g. `your-username/ml-notes`.
-Add a folder called `notes/` (create a placeholder `.gitkeep` file inside it).
+### 2. Configure
 
-### 4. Install dependencies
+Create `.env` file:
+```bash
+GROQ_API_KEY="gsk_xxxxxxxxxxxxxxxxxxxx"
+GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+GITHUB_REPO="your-username/your-repo"
+```
+
+### 3. Install & run
+
 ```bash
 pip install -r requirements.txt
+
+# Using default config
+python main.py "https://youtube.com/watch?v=VIDEO_ID"
+
+# Using ML-specific config
+python main.py --config machine_learning "https://youtube.com/watch?v=VIDEO_ID"
+
+# Save locally (no GitHub)
+python main.py --output ./my-notes "https://youtube.com/watch?v=VIDEO_ID"
 ```
 
-### 5. Set your secrets as environment variables
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Topic-agnostic** | Works for ML, web dev, finance, any domain |
+| **Multi-provider** | Groq (free), Claude, extensible |
+| **Configurable** | YAML configs for different domains |
+| **Clean output** | Blog-style notes, no fluff, ASCII diagrams |
+| **Containerized** | Docker & Docker Compose ready |
+
+---
+
+## Project Structure
+
+```
+.
+├── core/               # Agent framework
+│   ├── base_agent.py
+│   ├── llm_provider.py
+│   ├── prompt_template.py
+│   └── content_processor.py
+├── config/             # Domain configurations
+│   ├── default.yaml
+│   └── machine_learning.yaml
+├── main.py             # CLI entry point
+├── Dockerfile
+└── docker-compose.yml
+```
+
+---
+
+## Generated Output Format
+
+Notes follow a clean, scannable structure:
+
+```markdown
+# Topic Name
+
+> One-line hook
+
+## The simplest way to think about it
+
+## What it is
+
+### Definition
+### Key point
+### Example
+
+## How it works
+
+## When to use / When to avoid
+
+## Real-world examples
+
+## The honest limitations
+
+## TL;DR
+```
+
+---
+
+## Docker Usage
+
 ```bash
-# Mac / Linux
-export GROQ_API_KEY="gsk_xxxxxxxxxxxxxxxxxxxx"
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-export GITHUB_REPO="your-username/ml-notes"
+# Build and run
+docker-compose run --rm notes-agent "https://youtube.com/watch?v=VIDEO_ID"
 
-# Windows PowerShell
-$env:GROQ_API_KEY="gsk_xxxxxxxxxxxxxxxxxxxx"
-$env:GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-$env:GITHUB_REPO="your-username/ml-notes"
-```
-
-Or edit the CONFIG section at the top of `ml_notes_agent.py` directly.
-
-### 6. Run the agent!
-```bash
-python ml_notes_agent.py "https://www.youtube.com/watch?v=VIDEO_ID"
-```
-
-That's it. In ~30 seconds you'll have a commit on GitHub with structured notes and
-Python examples ready to review.
-
----
-
-## 📂 Output file structure in your repo
-
-```
-ml-notes/
-└── notes/
-    ├── 20250610_gradient_descent.md
-    ├── 20250610_gradient_descent.py
-    ├── 20250611_neural_networks_basics.md
-    ├── 20250611_neural_networks_basics.py
-    └── ...
+# With specific config
+docker-compose --profile ml run --rm notes-agent-ml "https://youtube.com/watch?v=VIDEO_ID"
 ```
 
 ---
 
-## 📝 What the generated .md file contains
+## Configuration
 
-| Section | Description |
-|---|---|
-| Overview | Plain-English summary of the lecture |
-| Key Concepts | Each concept explained simply, then in depth |
-| Real-World Usage | How this is used in production today |
-| Best Practices | Production tips and common pitfalls |
-| Code Examples | Link to the `.py` file (if generated) |
-| Further Reading | Curated resources to go deeper |
+Create custom domain configs in `config/`:
 
----
-
-## 🔧 Configuration options
-
-Edit the CONFIG block at the top of `ml_notes_agent.py`:
-
-| Variable | Default | Description |
-|---|---|---|
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Free and very capable |
-| `NOTES_FOLDER` | `notes` | Folder inside your GitHub repo |
-| `MAX_TRANSCRIPT_CHARS` | `12000` | Trim transcripts longer than this |
-| `MAX_RESEARCH_RESULTS` | `4` | Number of DuckDuckGo snippets to use |
+```yaml
+# config/my_domain.yaml
+domain: "web_development"
+llm:
+  provider: "groq"
+  model: "llama-3.3-70b-versatile"
+research:
+  query_templates:
+    - "{topic} best practices 2024"
+    - "{topic} production examples"
+```
 
 ---
 
-## 🆓 Why is this free?
+## Troubleshooting
 
-| Component | Tool | Cost |
-|---|---|---|
-| Transcript extraction | `youtube-transcript-api` | Free, no key |
-| AI summarization & generation | Groq free tier | Free (14,400 req/day) |
-| Web research | DuckDuckGo HTML scrape | Free, no key |
-| GitHub push | GitHub REST API | Free with any account |
-
----
-
-## 🛠 Troubleshooting
-
-**"TranscriptsDisabled" error** — The video has no subtitles. Try a video that shows
-the CC icon on YouTube.
-
-**Groq rate limit** — The free tier is generous but if you batch many videos quickly,
-add `time.sleep(3)` between runs.
-
-**GitHub 404 on push** — Make sure the `notes/` folder exists in your repo.
-Create a `.gitkeep` file inside it first.
-
-**Research returns nothing** — DuckDuckGo occasionally blocks scraping. The agent
-will still generate notes from the transcript; research context will just be absent.
-
----
-
-## 💡 Pro tips
-
-- Run it right after watching, while the lecture is fresh — compare your mental notes
-  with what the agent generated.
-- Commit the `.md` file with your own annotations added below the AI content.
-- Add a weekly GitHub Action to compile all your notes into an index page.
+| Error | Fix |
+|-------|-----|
+| `TranscriptsDisabled` | Video has no captions. Try one with CC icon. |
+| `429 Too Many Requests` | Groq rate limit. Wait 60 seconds, retry. |
+| `401 Unauthorized` | Check `GROQ_API_KEY` in `.env` file. |
+| GitHub 404 | Ensure `docs/` folder exists in repo. |
