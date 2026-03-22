@@ -23,14 +23,26 @@ import time
 import base64
 import textwrap
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import quote_plus, urlparse, parse_qs
 
 import requests
+from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from bs4 import BeautifulSoup
 
 # ─────────────────────────────────────────────
-# CONFIG  (edit these or set as env vars)
+# Load .env file from the same directory as this script
+# ─────────────────────────────────────────────
+_env_path = Path(__file__).resolve().parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+else:
+    print(f"[WARNING] No .env file found at {_env_path}")
+    print("          Copy .env.example to .env and fill in your keys.")
+
+# ─────────────────────────────────────────────
+# CONFIG  (loaded from .env or system env vars)
 # ─────────────────────────────────────────────
 GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 GITHUB_TOKEN    = os.getenv("GITHUB_TOKEN", "YOUR_GITHUB_TOKEN_HERE")
@@ -73,13 +85,27 @@ def get_video_metadata(video_id: str) -> dict:
 
 def get_transcript(video_id: str) -> str:
     """Fetch and join the transcript for a YouTube video."""
-    print("  [1/5] Fetching transcript …")
-    transcript = YouTubeTranscriptApi.get_transcript(video_id)
-    text = " ".join(chunk["text"] for chunk in transcript)
-    # Trim to context budget
-    if len(text) > MAX_TRANSCRIPT_CHARS:
-        text = text[:MAX_TRANSCRIPT_CHARS] + "\n[... transcript truncated ...]"
-    return text
+    print("  [1/5] Fetching transcript ...")
+    try:
+        # New API for version 1.x
+        # Try Hindi and English variants first
+        languages = ['hi', 'en', 'en-IN', 'en-US', 'en-GB']
+        
+        ytt_api = YouTubeTranscriptApi()
+        transcript = ytt_api.fetch(video_id, languages=languages)
+        
+        text = " ".join(chunk.text for chunk in transcript)
+        # Trim to context budget
+        if len(text) > MAX_TRANSCRIPT_CHARS:
+            text = text[:MAX_TRANSCRIPT_CHARS] + "\n[... transcript truncated ...]"
+        return text
+    except Exception as e:
+        print(f"    [ERROR] Failed to fetch transcript: {e}")
+        print("    Common causes:")
+        print("      - Video has no captions/subtitles")
+        print("      - Transcripts are disabled by the uploader")
+        print("      - Video is private or restricted")
+        raise
 
 
 def groq_chat(messages: list, max_tokens: int = 2048, temperature: float = 0.4) -> str:
@@ -105,7 +131,7 @@ def summarize_transcript(transcript: str, meta: dict) -> dict:
     Returns a dict with keys: topic, summary, key_concepts, prerequisites,
     needs_code (bool), code_topics (list).
     """
-    print("  [2/5] Summarizing with AI …")
+    print("  [2/5] Summarizing with AI ...")
     system = textwrap.dedent("""
         You are an expert ML educator. A student gave you a YouTube lecture transcript.
         Return ONLY a JSON object (no markdown fences) with these exact keys:
@@ -142,7 +168,7 @@ def research_topic(topic: str, key_concepts: list) -> str:
     Scrape DuckDuckGo HTML for production/industry context.
     Returns a plain-text blob of combined snippets.
     """
-    print("  [3/5] Researching industry usage …")
+    print("  [3/5] Researching industry usage ...")
     queries = [
         f"{topic} machine learning production best practices",
         f"{topic} real world use cases industry 2024",
@@ -165,14 +191,14 @@ def research_topic(topic: str, key_concepts: list) -> str:
                     snippets.append(text)
             time.sleep(1)          # be polite to DDG
         except Exception as e:
-            print(f"    ⚠ DDG search failed for '{query}': {e}")
+            print(f"    [!] DDG search failed for '{query}': {e}")
 
     return "\n\n".join(snippets) if snippets else "No research results found."
 
 
 def generate_notes(meta: dict, info: dict, research: str) -> str:
     """Ask Groq to write the full .md notes file."""
-    print("  [4a/5] Generating Markdown notes …")
+    print("  [4a/5] Generating Markdown notes ...")
     date_str = datetime.now().strftime("%Y-%m-%d")
 
     system = textwrap.dedent("""
@@ -212,7 +238,7 @@ def generate_notes(meta: dict, info: dict, research: str) -> str:
 
 def generate_code(meta: dict, info: dict) -> str:
     """Ask Groq to write a clean .py example file."""
-    print("  [4b/5] Generating Python examples …")
+    print("  [4b/5] Generating Python examples ...")
     system = textwrap.dedent("""
         You are a senior ML engineer. Write clean, well-commented Python code examples
         for the topics listed. Follow these rules:
@@ -287,26 +313,26 @@ def push_to_github(filename: str, content: str, commit_msg: str) -> str:
 # ─────────────────────────────────────────────
 
 def run_agent(youtube_url: str):
-    print(f"\n🤖 ML Notes Agent starting …\n   URL: {youtube_url}\n")
+    print(f"\n[*] ML Notes Agent starting ...\n    URL: {youtube_url}\n")
 
     # ── 0. Validate config ──────────────────────────────────────────────
     if "YOUR_GROQ" in GROQ_API_KEY:
-        print("❌  Set GROQ_API_KEY env var or edit the script.")
+        print("[ERROR] Set GROQ_API_KEY in your .env file or as an env var.")
         sys.exit(1)
     if "YOUR_GITHUB" in GITHUB_TOKEN:
-        print("❌  Set GITHUB_TOKEN env var or edit the script.")
+        print("[ERROR] Set GITHUB_TOKEN in your .env file or as an env var.")
         sys.exit(1)
 
     # ── 1. Transcript ───────────────────────────────────────────────────
     video_id = extract_video_id(youtube_url)
     meta     = get_video_metadata(video_id)
-    print(f"   📺  '{meta['title']}' by {meta['channel']}")
+    print(f"   [VIDEO] '{meta['title']}' by {meta['channel']}")
 
     transcript = get_transcript(video_id)
 
     # ── 2. Summarize ────────────────────────────────────────────────────
     info = summarize_transcript(transcript, meta)
-    print(f"   📌  Topic detected: {info['topic']}")
+    print(f"   [TOPIC] Topic detected: {info['topic']}")
 
     # ── 3. Research ─────────────────────────────────────────────────────
     research = research_topic(info["topic"], info["key_concepts"])
@@ -321,7 +347,7 @@ def run_agent(youtube_url: str):
     py_name   = f"{date_str}_{slug}.py" if py_code else None
 
     # ── 5. Push to GitHub ───────────────────────────────────────────────
-    print("  [5/5] Pushing to GitHub …")
+    print("  [5/5] Pushing to GitHub ...")
     commit_prefix = f"notes: add {info['topic']} ({date_str})"
 
     md_url = push_to_github(
@@ -329,7 +355,7 @@ def run_agent(youtube_url: str):
         notes_md,
         f"{commit_prefix} – notes",
     )
-    print(f"   ✅  Notes pushed  → {md_url}")
+    print(f"   [OK] Notes pushed  -> {md_url}")
 
     py_url = None
     if py_code and py_name:
@@ -338,9 +364,9 @@ def run_agent(youtube_url: str):
             py_code,
             f"{commit_prefix} – code examples",
         )
-        print(f"   ✅  Code pushed   → {py_url}")
+        print(f"   [OK] Code pushed   -> {py_url}")
 
-    print(f"\n🎉  Done! Files are live on GitHub.\n")
+    print(f"\n[DONE] Files are live on GitHub.\n")
 
     return {
         "topic":    info["topic"],
