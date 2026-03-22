@@ -1,0 +1,51 @@
+# Default configuration for Notes Agent
+# This is a generic, topic-agnostic configuration
+
+# Domain configuration
+domain: "generic"
+
+# LLM Provider settings
+llm:
+  provider: "groq"  # Options: groq, claude, openai
+  model: null  # null = use provider default
+  # Provider-specific settings
+  temperature: 0.4
+  max_tokens: 4000
+  timeout: 60
+
+# Content processing settings
+content:
+  max_transcript_chars: 12000
+  excerpt_length: 8000
+  languages:
+    - en
+    - en-US
+    - en-GB
+    - es
+    - fr
+    - de
+
+# Research settings
+research:
+  enabled: true
+  max_queries: 2
+  max_results_per_query: 2
+  delay_between_queries: 0.5
+
+# Output settings
+output:
+  docs_folder: "docs"
+  examples_folder: "examples"
+  save_locally: true
+  local_output_dir: "./output"
+
+# GitHub integration (optional)
+github:
+  enabled: false
+  token: null  # Set via GITHUB_TOKEN env var
+  repo: null   # Format: "username/repo-name"
+  
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

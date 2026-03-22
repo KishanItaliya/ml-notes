@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  notes-agent:
+    build: .
+    container_name: notes-agent
+    volumes:
+      - ./output:/app/output
+      - ./config:/app/config:ro
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+    command: ["--help"]
+    
+  # Example: Run with specific config
+  notes-agent-ml:
+    build: .
+    container_name: notes-agent-ml
+    volumes:
+      - ./output:/app/output
+      - ./config:/app/config:ro
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+    command: ["--config", "machine_learning", "--save-local", "/app/output"]
+    profiles:
+      - ml
+
+# Usage:
+#   docker-compose run --rm notes-agent "https://youtube.com/watch?v=..."
+#   docker-compose --profile ml run --rm notes-agent-ml "https://youtube.com/watch?v=..."

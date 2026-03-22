@@ -1,0 +1,66 @@
+# Machine Learning domain configuration
+# Extends default.yaml with ML-specific settings
+
+# Domain configuration
+domain: "machine_learning"
+
+# LLM Provider settings
+llm:
+  provider: "groq"
+  model: "llama-3.3-70b-versatile"
+  temperature: 0.4
+  max_tokens: 4000
+
+# Content processing settings
+content:
+  max_transcript_chars: 12000
+  excerpt_length: 8000
+  # Support for Hindi ML tutorials (common in educational content)
+  languages:
+    - hi
+    - en
+    - en-IN
+    - en-US
+    - en-GB
+
+# Research settings - ML-specific queries
+research:
+  enabled: true
+  max_queries: 4
+  max_results_per_query: 2
+  query_templates:
+    - "{topic} machine learning production best practices 2024"
+    - "{topic} real world use cases companies"
+    - "{topic} implementation guide tutorial"
+    - "{topic} common pitfalls mistakes"
+
+# Output settings
+output:
+  docs_folder: "docs"
+  examples_folder: "examples"
+  save_locally: true
+  local_output_dir: "./output"
+
+# GitHub integration
+github:
+  enabled: true
+  token: null  # Set via GITHUB_TOKEN env var
+  repo: null   # e.g., "username/ml-notes"
+
+# Domain-specific metadata
+domain_metadata:
+  name: "Machine Learning"
+  description: "Study notes and code examples for ML concepts"
+  topics:
+    - supervised_learning
+    - unsupervised_learning
+    - deep_learning
+    - reinforcement_learning
+    - mlops
+  code_languages:
+    - python
+  preferred_libraries:
+    - numpy
+    - scikit-learn
+    - pytorch
+    - tensorflow
